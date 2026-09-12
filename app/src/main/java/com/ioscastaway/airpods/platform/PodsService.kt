@@ -64,6 +64,14 @@ class PodsService : Service() {
     private var watchdog: Job? = null
     private var startedAt = 0L
     private var lastBeaconAt = 0L
+
+    /**
+     * True only between a CONNECTED/MANUAL start and a disconnect. A DISCONNECTED intent can create
+     * the service just to show the card, and the audio-routing change that comes with it fires the
+     * playback callback; without this flag that callback would start a scan from a service that
+     * was never promoted to the foreground.
+     */
+    private var active = false
     private lateinit var audio: AudioManager
 
     /**
@@ -108,6 +116,7 @@ class PodsService : Service() {
         }
         startForeground(NOTIFICATION_ID, notification(store.status.value), ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
         stopJob?.cancel()
+        active = true
         startedAt = SystemClock.elapsedRealtime()
         applyScanMode()
         startWatchdog()
@@ -122,6 +131,9 @@ class PodsService : Service() {
     }
 
     private fun onDisconnected() {
+        active = false
+        rescanJob?.cancel()
+        stopScan()
         detector.reset()
         if (store.settings.value.popup) popup.show(connected = false, status = store.status.value)
         // Linger briefly so a reconnect (the pods hop between phone and case a lot) does not churn.
@@ -150,6 +162,7 @@ class PodsService : Service() {
 
     /** Pick the scan mode for the current situation and (re)start the scan only if it changed. */
     private fun applyScanMode() {
+        if (!active) return
         val warmingUp = SystemClock.elapsedRealtime() - startedAt < WARMUP_MS
         val wanted = if (media.isPlaying() || warmingUp) ScanSettings.SCAN_MODE_LOW_LATENCY
         else ScanSettings.SCAN_MODE_BALANCED

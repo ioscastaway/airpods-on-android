@@ -6,6 +6,10 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.bluetooth.BluetoothManager
+import android.media.AudioManager
+import android.media.AudioPlaybackConfiguration
+import android.os.Handler
+import android.os.Looper
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
@@ -54,7 +58,26 @@ class PodsService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var scanner: android.bluetooth.le.BluetoothLeScanner? = null
     private var scanning = false
+    private var scanMode = -1
     private var stopJob: Job? = null
+    private var rescanJob: Job? = null
+    private var watchdog: Job? = null
+    private var startedAt = 0L
+    private var lastBeaconAt = 0L
+    private lateinit var audio: AudioManager
+
+    /**
+     * Only playback needs a fast scan: pausing when a pod comes out should feel immediate. With
+     * nothing playing, the widget can wait a few seconds for a number, so the radio idles more.
+     * Playback changes are the trigger; the decision itself is re-read from isMusicActive() after
+     * a short delay, because that flag can lag the callback.
+     */
+    private val playbackCallback = object : AudioManager.AudioPlaybackCallback() {
+        override fun onPlaybackConfigChanged(configs: MutableList<AudioPlaybackConfiguration>?) {
+            rescanJob?.cancel()
+            rescanJob = scope.launch { delay(1500); applyScanMode() }
+        }
+    }
 
     /** Strongest recent beacon wins; the pods' BLE address is random, so RSSI is the only handle. */
     private var best: Pair<String, Int>? = null
@@ -68,6 +91,8 @@ class PodsService : Service() {
         media = MediaControl(this)
         popup = ConnectPopup(this)
         detector = EarDetector({ store.settings.value.toDetector() }, { media.isPlaying() })
+        audio = getSystemService(AudioManager::class.java)
+        audio.registerAudioPlaybackCallback(playbackCallback, Handler(Looper.getMainLooper()))
         createChannels()
     }
 
@@ -83,7 +108,9 @@ class PodsService : Service() {
         }
         startForeground(NOTIFICATION_ID, notification(store.status.value), ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
         stopJob?.cancel()
-        startScan()
+        startedAt = SystemClock.elapsedRealtime()
+        applyScanMode()
+        startWatchdog()
         if (event == Event.CONNECTED) {
             // The first beacon after connecting is what makes the card useful; give it a moment.
             scope.launch {
@@ -103,6 +130,9 @@ class PodsService : Service() {
     }
 
     override fun onDestroy() {
+        watchdog?.cancel()
+        rescanJob?.cancel()
+        runCatching { audio.unregisterAudioPlaybackCallback(playbackCallback) }
         stopScan()
         store.setMonitoring(false)
         popup.dismiss()
@@ -118,7 +148,23 @@ class PodsService : Service() {
         override fun onScanFailed(errorCode: Int) { Log.w(TAG, "scan failed: $errorCode"); scanning = false }
     }
 
-    private fun startScan() {
+    /** Pick the scan mode for the current situation and (re)start the scan only if it changed. */
+    private fun applyScanMode() {
+        val warmingUp = SystemClock.elapsedRealtime() - startedAt < WARMUP_MS
+        val wanted = if (media.isPlaying() || warmingUp) ScanSettings.SCAN_MODE_LOW_LATENCY
+        else ScanSettings.SCAN_MODE_BALANCED
+        if (scanning && wanted == scanMode) return
+        // Android throttles apps that start scans more than 5 times in 30 s; mode changes are rare
+        // (play/pause) and debounced, so a stop/start pair here stays well inside that.
+        stopScan()
+        startScan(wanted)
+        if (warmingUp) {
+            rescanJob?.cancel()
+            rescanJob = scope.launch { delay(WARMUP_MS); applyScanMode() }
+        }
+    }
+
+    private fun startScan(mode: Int) {
         if (scanning) return
         val adapter = getSystemService(BluetoothManager::class.java)?.adapter ?: return
         scanner = adapter.bluetoothLeScanner ?: return
@@ -126,14 +172,35 @@ class PodsService : Service() {
             .setManufacturerData(ProximityParser.APPLE_COMPANY_ID, ProximityParser.PREFIX, ProximityParser.PREFIX_MASK)
             .build()
         val settings = ScanSettings.Builder()
-            .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+            .setScanMode(mode)
             .setReportDelay(0)
             .build()
         runCatching {
             scanner?.startScan(listOf(filter), settings, callback)
             scanning = true
+            scanMode = mode
             store.setMonitoring(true)
+            Log.d(TAG, "scan started, mode=" + if (mode == ScanSettings.SCAN_MODE_LOW_LATENCY) "low-latency" else "balanced")
         }.onFailure { Log.w(TAG, "startScan", it) }
+    }
+
+    /**
+     * A missed disconnect broadcast must not leave the radio scanning all day. If nothing has been
+     * heard for a while and no AirPods are connected for audio, the service stops itself.
+     */
+    private fun startWatchdog() {
+        watchdog?.cancel()
+        watchdog = scope.launch {
+            while (true) {
+                delay(60_000)
+                val quiet = SystemClock.elapsedRealtime() - maxOf(lastBeaconAt, startedAt) > QUIET_LIMIT_MS
+                if (quiet && BluetoothEvents.connectedPods(this@PodsService) == null) {
+                    Log.i(TAG, "watchdog: no beacons and no audio connection; stopping")
+                    stopSelf()
+                    return@launch
+                }
+            }
+        }
     }
 
     private fun stopScan() {
@@ -146,6 +213,7 @@ class PodsService : Service() {
         val data = result.scanRecord?.getManufacturerSpecificData(ProximityParser.APPLE_COMPANY_ID) ?: return
         val now = System.currentTimeMillis()
         val status = ProximityParser.parse(data, result.rssi, now) ?: return
+        lastBeaconAt = SystemClock.elapsedRealtime()
 
         // Several Apple devices may be advertising; follow the strongest one seen in the last 10 s,
         // sticking to the same address while it keeps talking.
@@ -217,6 +285,10 @@ class PodsService : Service() {
         private const val NOTIFICATION_ID = 10
         /** Beacons from a pocket a metre away sit around -60; across the room they are noise. */
         private const val MIN_RSSI = -75
+        /** Fast scan right after start so the connect card and widget get numbers quickly. */
+        private const val WARMUP_MS = 10_000L
+        /** No beacon for this long, and no audio connection, means the pods are gone. */
+        private const val QUIET_LIMIT_MS = 3 * 60_000L
 
         fun pct(v: Int?): String = v?.let { "$it%" } ?: "—"
 

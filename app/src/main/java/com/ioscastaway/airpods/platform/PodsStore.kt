@@ -38,14 +38,29 @@ class PodsStore private constructor(context: Context) {
         fun toDetector() = EarDetector.Settings(enabled = autoPause, mode = mode)
     }
 
+    private var lastPersistedHex: String? = null
+    private var lastPersistedAt = 0L
+
+    /**
+     * Beacons arrive several times a second. The in-memory state follows every one; the disk copy
+     * is written only when the bytes change or half a minute has passed, and the inspector list
+     * skips frames identical to the previous one.
+     */
     fun publish(status: PodsStatus) {
         _status.value = status
-        _frames.value = (listOf(status) + _frames.value).take(40)
-        prefs.edit()
-            .putString(KEY_RAW, status.rawHex())
-            .putInt(KEY_RSSI, status.rssi)
-            .putLong(KEY_TS, status.timestampMs)
-            .apply()
+        val hex = status.rawHex()
+        if (_frames.value.firstOrNull()?.rawHex() != hex) {
+            _frames.value = (listOf(status) + _frames.value).take(40)
+        }
+        if (hex != lastPersistedHex || status.timestampMs - lastPersistedAt > 30_000) {
+            lastPersistedHex = hex
+            lastPersistedAt = status.timestampMs
+            prefs.edit()
+                .putString(KEY_RAW, hex)
+                .putInt(KEY_RSSI, status.rssi)
+                .putLong(KEY_TS, status.timestampMs)
+                .apply()
+        }
     }
 
     fun setMonitoring(on: Boolean) { _monitoring.value = on }

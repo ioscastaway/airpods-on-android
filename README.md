@@ -55,6 +55,15 @@ Three features, one service:
    paused, and resumes only if the pod comes back within ten minutes and nothing has been played
    since. "Either pod" mirrors iOS; "Both pods" is the quieter option.
 
+**Battery.** The service exists only while the pods are connected, when the Bluetooth radio is
+already up for audio. The scan runs in low-latency mode only while something is playing — that is
+when a pod coming out has to be noticed at once — and drops to balanced mode otherwise, with a
+ten-second fast warm-up after connecting so the card and widget get numbers immediately. Disk is
+written only when a beacon's bytes change, and a watchdog stops the service if nothing has been
+heard for three minutes and no AirPods are connected for audio, so a missed disconnect broadcast
+cannot leave the radio scanning all day. Measured numbers belong in *What I learned*, after a real
+listening session.
+
 The pods' BLE address is randomised, so the phone cannot ask "is this beacon mine?". The service
 follows the strongest beacon of the last ten seconds and ignores anything weaker than about
 -75 dBm, which in practice means the pair in your ears, not the pair on the next desk.

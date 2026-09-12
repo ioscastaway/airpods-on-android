@@ -10,7 +10,7 @@ package com.ioscastaway.airpods.pods
  *
  * ```
  * byte  0      0x07  message type: proximity pairing
- * byte  1      0x19  payload length (25)
+ * byte  1      payload length (0x19 on older firmware; not relied on)
  * byte  3–4    model id (big-endian), e.g. 0x1920 = AirPods 4
  * nibble 10    bit 0x02 clear  → pods are "flipped": left/right fields are swapped
  * nibble 11    in-ear bits: 0x02 and 0x08 (which is left depends on flip)
@@ -24,12 +24,15 @@ package com.ioscastaway.airpods.pods
 object ProximityParser {
 
     const val APPLE_COMPANY_ID = 0x004C
-    val PREFIX: ByteArray = byteArrayOf(0x07, 0x19)
-    val PREFIX_MASK: ByteArray = byteArrayOf(0xFF.toByte(), 0xFF.toByte())
-    private const val MIN_LENGTH = 27
+    const val TYPE_PROXIMITY_PAIRING: Byte = 0x07
+    /** Hardware filter: Apple + message type only. The length byte differs between firmware generations. */
+    val PREFIX: ByteArray = byteArrayOf(TYPE_PROXIMITY_PAIRING)
+    val PREFIX_MASK: ByteArray = byteArrayOf(0xFF.toByte())
+    /** Everything this parser reads sits in bytes 0–7. */
+    private const val MIN_LENGTH = 8
 
     fun looksLikePods(data: ByteArray?): Boolean =
-        data != null && data.size >= MIN_LENGTH && data[0] == PREFIX[0] && data[1] == PREFIX[1]
+        data != null && data.size >= MIN_LENGTH && data[0] == TYPE_PROXIMITY_PAIRING
 
     fun parse(data: ByteArray, rssi: Int, timestampMs: Long): PodsStatus? {
         if (!looksLikePods(data)) return null

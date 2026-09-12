@@ -28,8 +28,11 @@ class ProximityParserTest {
 
     @Test
     fun `rejects anything that is not a proximity pairing frame`() {
-        assertNull(ProximityParser.parse(byteArrayOf(0x10, 0x05, 0x01), -50, 0))
-        assertNull(ProximityParser.parse(frame().copyOf(20), -50, 0))
+        assertNull(ProximityParser.parse(byteArrayOf(0x10, 0x05, 0x01), -50, 0))   // not type 0x07
+        assertNull(ProximityParser.parse(frame().copyOf(7), -50, 0))               // too short for byte 7
+        // a longer or shorter payload than the classic 27 bytes is fine as long as bytes 0–7 are there
+        assertEquals(PodsModel.AIRPODS_4, ProximityParser.parse(frame().copyOf(12), -50, 0)!!.model)
+        assertEquals(PodsModel.AIRPODS_4, ProximityParser.parse(frame() + ByteArray(6), -50, 0)!!.model)
     }
 
     @Test

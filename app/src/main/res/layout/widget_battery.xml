@@ -1,67 +1,91 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    One slim row, transparent background: three cells of ring+picture (bitmaps from WidgetArt) with
+    the percentage beside each, packed together and centred rather than spread across the width.
+    Text carries a light halo so it reads on any wallpaper.
+-->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/widget_bg"
-    android:gravity="center_vertical"
+    android:background="@android:color/transparent"
+    android:baselineAligned="false"
+    android:gravity="center"
     android:orientation="horizontal"
-    android:paddingHorizontal="14dp"
-    android:paddingVertical="10dp">
-
-    <ImageView
-        android:layout_width="28dp"
-        android:layout_height="28dp"
-        android:contentDescription="@string/widget_label"
-        android:src="@drawable/ic_pods"
-        android:tint="#1C1C1E" />
+    android:paddingHorizontal="4dp"
+    android:paddingVertical="2dp">
 
     <LinearLayout
-        android:layout_width="0dp"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="12dp"
-        android:layout_weight="1"
-        android:orientation="vertical">
-
+        android:gravity="center"
+        android:orientation="horizontal">
+        <ImageView
+            android:id="@+id/widget_left_art"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:contentDescription="@string/widget_left"
+            android:src="@drawable/art_pod_left" />
         <TextView
-            android:id="@+id/widget_title"
+            android:id="@+id/widget_left"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/app_name"
+            android:layout_marginStart="5dp"
+            android:shadowColor="#CCFFFFFF"
+            android:shadowRadius="5"
+            android:text="@string/widget_unknown"
             android:textColor="#1C1C1E"
-            android:textSize="12sp" />
+            android:textSize="14sp"
+            android:textStyle="bold" />
+    </LinearLayout>
 
-        <LinearLayout
-            android:layout_width="match_parent"
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="14dp"
+        android:gravity="center"
+        android:orientation="horizontal">
+        <ImageView
+            android:id="@+id/widget_right_art"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:contentDescription="@string/widget_right"
+            android:src="@drawable/art_pod_right" />
+        <TextView
+            android:id="@+id/widget_right"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
+            android:layout_marginStart="5dp"
+            android:shadowColor="#CCFFFFFF"
+            android:shadowRadius="5"
+            android:text="@string/widget_unknown"
+            android:textColor="#1C1C1E"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+    </LinearLayout>
 
-            <TextView
-                android:id="@+id/widget_left"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:textColor="#1C1C1E"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/widget_right"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:textColor="#1C1C1E"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/widget_case"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:textColor="#1C1C1E"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-        </LinearLayout>
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="14dp"
+        android:gravity="center"
+        android:orientation="horizontal">
+        <ImageView
+            android:id="@+id/widget_case_art"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:contentDescription="@string/widget_case"
+            android:src="@drawable/art_case" />
+        <TextView
+            android:id="@+id/widget_case"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="5dp"
+            android:shadowColor="#CCFFFFFF"
+            android:shadowRadius="5"
+            android:text="@string/widget_unknown"
+            android:textColor="#1C1C1E"
+            android:textSize="14sp"
+            android:textStyle="bold" />
     </LinearLayout>
 </LinearLayout>

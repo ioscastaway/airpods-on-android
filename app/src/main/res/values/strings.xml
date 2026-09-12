@@ -15,8 +15,8 @@
     <string name="popup_connected">Connected</string>
     <string name="popup_disconnected">Disconnected</string>
 
-    <string name="widget_left">L</string>
-    <string name="widget_right">R</string>
+    <string name="widget_left">Left</string>
+    <string name="widget_right">Right</string>
     <string name="widget_case">Case</string>
     <string name="widget_unknown">—</string>
     <string name="widget_no_data">No AirPods seen yet</string>

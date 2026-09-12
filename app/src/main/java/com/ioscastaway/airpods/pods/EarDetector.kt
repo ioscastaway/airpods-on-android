@@ -35,8 +35,14 @@ class EarDetector(
     private var candidateSinceMs = 0L
     private var pausedAtMs: Long? = null
 
-    /** Feed every decoded beacon. Returns an action when one is due, otherwise null. */
-    fun onStatus(status: PodsStatus, nowMs: Long): Action? {
+    /**
+     * Feed every status. Returns an action when one is due, otherwise null.
+     *
+     * Beacons flicker and stream several times a second, so a new reading must hold for
+     * [Settings.stableMs] and is confirmed by the readings that follow. Accessory-channel events are
+     * reliable and sparse — nothing follows to confirm them — so callers pass [stableMs] = 0.
+     */
+    fun onStatus(status: PodsStatus, nowMs: Long, stableMs: Long = settings().stableMs): Action? {
         val s = settings()
         if (!s.enabled) { reset(); return null }
         // Both pods in the case (no battery seen for either) tells us nothing about ears.
@@ -47,7 +53,7 @@ class EarDetector(
             candidateCount = count
             candidateSinceMs = nowMs
         }
-        if (nowMs - candidateSinceMs < s.stableMs) return null
+        if (nowMs - candidateSinceMs < stableMs) return null
 
         val previous = confirmedCount
         confirmedCount = count

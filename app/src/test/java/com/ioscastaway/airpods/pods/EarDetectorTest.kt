@@ -89,3 +89,22 @@ class EarDetectorTest {
         assertNull(settle(2, 0)); assertNull(settle(1, 1000))
     }
 }
+
+class EarDetectorImmediateTest {
+    private fun status(inEar: Int) = PodsStatus(
+        modelId = 0x1920, model = PodsModel.AIRPODS_4, leftBattery = 90, rightBattery = 90, caseBattery = 50,
+        leftCharging = false, rightCharging = false, caseCharging = false,
+        inEarLeft = inEar >= 1, inEarRight = inEar >= 2, flipped = false, rssi = 0, timestampMs = 0, raw = ByteArray(0),
+        source = PodsStatus.Source.AAP, earSidesKnown = false,
+    )
+
+    @Test
+    fun `with stableMs 0 a single accessory event is enough to pause and resume`() {
+        var playing = true
+        val d = EarDetector({ EarDetector.Settings() }, { playing })
+        org.junit.Assert.assertNull(d.onStatus(status(2), 1_000, stableMs = 0))          // baseline
+        org.junit.Assert.assertEquals(EarDetector.Action.PAUSE, d.onStatus(status(1), 1_100, stableMs = 0))
+        playing = false
+        org.junit.Assert.assertEquals(EarDetector.Action.RESUME, d.onStatus(status(2), 1_500, stableMs = 0))
+    }
+}

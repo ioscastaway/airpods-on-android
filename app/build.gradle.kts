@@ -27,7 +27,13 @@ android {
         }
     }
 
-    buildFeatures { compose = true }
+    // Hidden-API use is declared in code, not via Play; keep the dependency metadata out of the APK.
+    dependenciesInfo { includeInApk = false; includeInBundle = false }
+
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -40,6 +46,8 @@ kotlin {
 }
 
 dependencies {
+    // Reaches the hidden classic-L2CAP socket constructors on BluetoothDevice (see AapClient).
+    implementation("org.lsposed.hiddenapibypass:hiddenapibypass:6.1")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))

@@ -1,11 +1,12 @@
 package com.ioscastaway.airpods.pods
 
 /**
- * One decoded status beacon.
+ * One snapshot of the pods, from either source.
  *
- * Battery values are percentages in steps of 10, or null when the beacon reports "unknown"
- * (a pod that is out of range of the case, for instance). [inEarLeft]/[inEarRight] come from
- * undocumented status bits and are the basis of auto-pause; see [ProximityParser].
+ * From the BLE beacon: battery in steps of 10 (null = "unknown"), in-ear bits per side.
+ * From the accessory channel (AAP): battery in 1 % steps, in-ear as a count — the channel reports
+ * "primary/secondary", not left/right, so [earSidesKnown] is false and [inEarLeft]/[inEarRight]
+ * only encode how many pods are in ears.
  */
 data class PodsStatus(
     val modelId: Int,
@@ -22,11 +23,15 @@ data class PodsStatus(
     val rssi: Int,
     val timestampMs: Long,
     val raw: ByteArray,
+    val source: Source = Source.BEACON,
+    val earSidesKnown: Boolean = true,
 ) {
+    enum class Source { BEACON, AAP }
+
     val inEarCount: Int get() = (if (inEarLeft) 1 else 0) + (if (inEarRight) 1 else 0)
 
     fun rawHex(): String = raw.joinToString("") { "%02X".format(it) }
 
-    override fun equals(other: Any?): Boolean = other is PodsStatus && other.rawHex() == rawHex()
+    override fun equals(other: Any?): Boolean = other is PodsStatus && other.source == source && other.rawHex() == rawHex()
     override fun hashCode(): Int = rawHex().hashCode()
 }

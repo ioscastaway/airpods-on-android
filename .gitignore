@@ -1,0 +1,20 @@
+# Agent guidance stays on the developer machine; the README is what a reader needs
+CLAUDE.md
+CLAUDE.local.md
+
+# Secrets and machine-local config
+local.properties
+
+# Gradle
+.gradle/
+build/
+.kotlin/
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+captures/
+
+# Author's private notes
+notes/

@@ -9,9 +9,11 @@ channel the iPhone uses.
 > stranger.
 
 **Series:** Guest Pass to the Walled Garden
-**Status:** working on a Galaxy Z Fold 8 (One UI 9.0, Android 17) with AirPods 4 (firmware 8B39):
-1 % battery for both pods and the case, ear events within about 100 ms, pause/resume verified with
-YouTube. See *What I learned* for what did **not** work on the way there, which is most of the story.
+**Status:** working on a Galaxy Z Fold 8 (One UI 9.0, Android 17, security patch 2026-09-05 — the
+phone was updated mid-experiment and everything below was re-measured on the new build) with
+AirPods 4 (firmware 8B39): 1 % battery for both pods and the case, ear events within about 100 ms,
+pause/resume verified with YouTube. See *What I learned* for what did **not** work on the way
+there, which is most of the story.
 
 ## Why I built this
 
@@ -185,8 +187,9 @@ player's.
 
 Earned. The beacon path — the one every guide describes — is dead on this firmware, and the
 correct answer was to stop listening at the door and knock on it. Android let me: the socket type
-exists, the platform hides it, and a debug-honest bypass opens it. iOS would not have shown me the
-door.
+exists, the platform hides it, and a debug-honest bypass opens it. A system update in the middle of
+the experiment changed none of that — the door was never the OS version, it was which socket you
+ask for. iOS would not have shown me the door at all.
 
 ---
 

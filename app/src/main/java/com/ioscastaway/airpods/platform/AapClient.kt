@@ -67,18 +67,39 @@ class AapClient(private val scope: CoroutineScope, private val listener: Listene
                 Log.i(TAG, "channel open (${s.javaClass.simpleName})")
                 withContext(Dispatchers.Main) { listener.onAapLink(true) }
                 val out = s.outputStream
-                out.write(AapParser.HANDSHAKE); out.flush()
-                out.write(AapParser.SET_FEATURES); out.flush()
-                out.write(AapParser.REQUEST_NOTIFICATIONS); out.flush()
+                var batterySeen = false
+                // The pods are still initialising right after the link comes up and can drop the
+                // notification request — then metadata arrives but battery and ear state never do
+                // (seen on lid-open with the pods in the case). LibrePods sends the whole opening
+                // sequence three times: at once, at 200 ms and at 5 s. Do the same, plus one extra
+                // request at 3 s if no battery has shown up by then.
+                val primer = scope.launch(Dispatchers.IO) {
+                    fun send(vararg packets: ByteArray) = runCatching { packets.forEach { out.write(it); out.flush() } }
+                    send(AapParser.HANDSHAKE, AapParser.SET_FEATURES, AapParser.REQUEST_NOTIFICATIONS)
+                    delay(200)
+                    send(AapParser.HANDSHAKE, AapParser.SET_FEATURES, AapParser.REQUEST_NOTIFICATIONS)
+                    delay(2800)
+                    if (!batterySeen) {
+                        Log.i(TAG, "no battery after 3 s; asking for notifications again")
+                        send(AapParser.REQUEST_NOTIFICATIONS)
+                    }
+                    delay(2000)
+                    send(AapParser.HANDSHAKE, AapParser.SET_FEATURES, AapParser.REQUEST_NOTIFICATIONS)
+                }
                 val buf = ByteArray(2048)
                 val input = s.inputStream
-                while (true) {
-                    val n = input.read(buf)
-                    if (n <= 0) break
-                    val packet = buf.copyOf(n)
-                    val event = AapParser.parse(packet)
-                    if (BuildConfig.DEBUG) Log.d(TAG, "rx ${packet.joinToString("") { "%02X".format(it) }.take(64)} → $event")
-                    if (event != null) withContext(Dispatchers.Main) { listener.onAapEvent(event, packet) }
+                try {
+                    while (true) {
+                        val n = input.read(buf)
+                        if (n <= 0) break
+                        val packet = buf.copyOf(n)
+                        val event = AapParser.parse(packet)
+                        if (event is AapParser.Event.Battery) batterySeen = true
+                        if (BuildConfig.DEBUG) Log.d(TAG, "rx ${packet.joinToString("") { "%02X".format(it) }.take(64)} → $event")
+                        if (event != null) withContext(Dispatchers.Main) { listener.onAapEvent(event, packet) }
+                    }
+                } finally {
+                    primer.cancel()
                 }
                 Log.i(TAG, "channel closed by peer")
             } catch (e: IOException) {

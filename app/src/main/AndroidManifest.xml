@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+        Android 12 split Bluetooth into two runtime permissions. SCAN is what reads the AirPods'
+        BLE status beacons; CONNECT is what lets us see the classic (A2DP) connection and the
+        device name. neverForLocation: the beacons are not used to infer where the user is, and
+        saying so removes the location-permission requirement that older Android tied to scanning.
+    -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="s" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
+    <!-- The monitor runs as a foreground service while AirPods are connected. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Restart the monitor after a reboot if the pods are already connected. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- The iOS-style connect card is an overlay; without the permission it falls back to a heads-up notification. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
+    <!-- Optional: keeps the ear-detection loop alive on aggressive OEM battery managers. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="true" />
+
+    <application
+        android:name=".App"
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.PodSignal">
+
+        <activity
+            android:name=".ui.MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!--
+            Wakes the app when any Bluetooth device connects or disconnects. These ACL broadcasts are
+            on Android's implicit-broadcast exemption list, so a manifest receiver still works, and
+            receiving one is an allowed reason to start a foreground service from the background.
+        -->
+        <receiver
+            android:name=".platform.BluetoothEvents"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.bluetooth.device.action.ACL_CONNECTED" />
+                <action android:name="android.bluetooth.device.action.ACL_DISCONNECTED" />
+                <action android:name="android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
+
+        <!--
+            Vendor AT commands from the headset profile. The stack only delivers them to receivers
+            registered under the sender's Bluetooth SIG company id; 76 is Apple, whose +IPHONEACCEV
+            carries battery level. Documented by Apple, exposed by Android — no beacon involved.
+        -->
+        <receiver
+            android:name=".platform.HeadsetVendorEvents"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.bluetooth.headset.action.VENDOR_SPECIFIC_HEADSET_EVENT" />
+                <category android:name="android.bluetooth.headset.intent.category.companyid.76" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Reboot / app update: if the pods are already connected there is no ACL broadcast to wait for. -->
+        <receiver
+            android:name=".platform.BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <service
+            android:name=".platform.PodsService"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice" />
+
+        <receiver
+            android:name=".widget.BatteryWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_battery_info" />
+        </receiver>
+    </application>
+</manifest>

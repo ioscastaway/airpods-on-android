@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Pod Signal</string>
+    <string name="widget_label">AirPods battery</string>
+
+    <string name="channel_monitor_name">AirPods monitor</string>
+    <string name="channel_monitor_description">Runs while AirPods are connected</string>
+    <string name="channel_events_name">Connection events</string>
+    <string name="channel_events_description">Connected / disconnected cards when the overlay is not allowed</string>
+
+    <string name="notif_monitoring">Watching your AirPods</string>
+    <string name="notif_waiting">Waiting for a status beacon…</string>
+    <string name="notif_battery">L %1$s · R %2$s · Case %3$s</string>
+
+    <string name="popup_connected">Connected</string>
+    <string name="popup_disconnected">Disconnected</string>
+
+    <string name="widget_left">Left</string>
+    <string name="widget_right">Right</string>
+    <string name="widget_case">Case</string>
+    <string name="widget_unknown">—</string>
+    <string name="widget_no_data">No AirPods seen yet</string>
+</resources>
